@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --primary: #0f2942;
+  --accent: #14532d;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-noto-devanagari), var(--font-inter), system-ui, sans-serif;
+}
+
+/* Ensure Leaflet map containers stack properly below modals/dropdowns */
+.leaflet-container {
+  z-index: 10;
+  font-family: inherit;
+}
+
+.marker-cluster-small {
+  background-color: rgba(15, 41, 66, 0.25);
+}
+.marker-cluster-small div {
+  background-color: rgba(15, 41, 66, 0.85);
+  color: #ffffff;
+  font-weight: 600;
+}
+.marker-cluster-medium {
+  background-color: rgba(180, 83, 9, 0.25);
+}
+.marker-cluster-medium div {
+  background-color: rgba(180, 83, 9, 0.85);
+  color: #ffffff;
+  font-weight: 600;
+}
+.marker-cluster-large {
+  background-color: rgba(153, 27, 27, 0.25);
+}
+.marker-cluster-large div {
+  background-color: rgba(153, 27, 27, 0.85);
+  color: #ffffff;
+  font-weight: 600;
+}

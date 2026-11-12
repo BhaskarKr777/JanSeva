@@ -1,0 +1,493 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CITIZEN
+  FIELD_OFFICER
+  REVIEWING_OFFICER
+  APPROVING_OFFICER
+  ADMIN
+}
+
+enum ComplaintStatus {
+  SUBMITTED
+  MANUAL_TRIAGE
+  UNDER_DESK_SCRUTINY
+  INSPECTION_SCHEDULED
+  INSPECTION_SUBMITTED
+  RETURNED_FOR_EVIDENCE
+  REINSPECTION_REQUESTED
+  TECHNICAL_REVIEW
+  REFERRED_FOR_INQUIRY
+  ACTION_APPROVED
+  RESOLVED
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectStatus {
+  SANCTIONED
+  IN_PROGRESS
+  COMPLETED
+  UNDER_INQUIRY
+}
+
+enum DocumentType {
+  PROJECT_SANCTION
+  ADMINISTRATIVE_APPROVAL
+  TECHNICAL_SANCTION
+  SANCTIONED_ESTIMATE
+  WORK_ORDER
+  EXPENDITURE_RECORD
+  MEASUREMENT_BOOK
+  COMPLETION_CERTIFICATE
+  BEFORE_PHOTO
+  DURING_PHOTO
+  AFTER_PHOTO
+}
+
+enum DecisionType {
+  APPROVE_ACTION
+  APPROVE_COMPLETION
+  RETURN_FOR_EVIDENCE
+  REQUEST_REINSPECTION
+  REFER_FOR_INQUIRY
+  REJECT_COMPLAINT
+  RECORD_RESOLUTION
+}
+
+enum RelationshipType {
+  DUPLICATE
+  RELATED_LOCATION
+  SAME_PROJECT
+}
+
+model District {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  nameHi    String
+  code      String   @unique
+  blocks    Block[]
+  createdAt DateTime @default(now())
+}
+
+model Block {
+  id             String          @id @default(cuid())
+  name           String
+  nameHi         String
+  districtId     String
+  district       District        @relation(fields: [districtId], references: [id])
+  gramPanchayats GramPanchayat[]
+  routingRules   RoutingRule[]
+  createdAt      DateTime        @default(now())
+
+  @@unique([name, districtId])
+}
+
+model GramPanchayat {
+  id         String      @id @default(cuid())
+  name       String
+  nameHi     String
+  blockId    String
+  block      Block       @relation(fields: [blockId], references: [id])
+  villages   Village[]
+  projects   Project[]
+  complaints Complaint[]
+  lat        Float
+  lng        Float
+  isDemo     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+
+  @@unique([name, blockId])
+}
+
+model Village {
+  id              String        @id @default(cuid())
+  name            String
+  nameHi          String
+  gramPanchayatId String
+  gramPanchayat   GramPanchayat @relation(fields: [gramPanchayatId], references: [id])
+  complaints      Complaint[]
+  lat             Float
+  lng             Float
+  createdAt       DateTime      @default(now())
+}
+
+model Department {
+  id           String                 @id @default(cuid())
+  name         String                 @unique
+  nameHi       String
+  code         String                 @unique
+  description  String?
+  users        User[]
+  projects     Project[]
+  complaints   Complaint[]            @relation("AssignedDepartment")
+  suggestedFor Complaint[]            @relation("SuggestedDepartment")
+  assignments  DepartmentAssignment[]
+  routingRules RoutingRule[]
+  createdAt    DateTime               @default(now())
+}
+
+model User {
+  id                   String                 @id @default(cuid())
+  name                 String
+  nameHi               String?
+  email                String                 @unique
+  phone                String?
+  passwordHash         String
+  role                 Role                   @default(CITIZEN)
+  designation          String?
+  designationHi        String?
+  departmentId         String?
+  department           Department?            @relation(fields: [departmentId], references: [id])
+  jurisdiction         String?
+  active               Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  assignedComplaints   Complaint[]            @relation("AssignedOfficer")
+  reviewingComplaints  Complaint[]            @relation("ReviewingOfficer")
+  approvingComplaints  Complaint[]            @relation("ApprovingOfficer")
+  inspectionsAssigned  InspectionAssignment[] @relation("InspectionAssignee")
+  inspectionsCreated   InspectionAssignment[] @relation("InspectionAssigner")
+  inspectionReports    InspectionReport[]
+  decisions            Decision[]
+  resolutions          ResolutionRecord[]
+  auditEvents          AuditEvent[]
+  notifications        Notification[]
+  deptAssignmentsMade  DepartmentAssignment[]
+}
+
+model Project {
+  id                String               @id @default(cuid())
+  projectCode       String               @unique
+  title             String
+  titleHi           String
+  schemeName        String
+  schemeNameHi      String?
+  category          String
+  status            ProjectStatus        @default(IN_PROGRESS)
+  sanctionedAmount  Float
+  expenditureAmount Float                @default(0)
+  contractorName    String?
+  sanctionDate      DateTime
+  expectedEndDate   DateTime?
+  actualEndDate     DateTime?
+  lat               Float
+  lng               Float
+  locationDesc      String
+  isSimulated       Boolean              @default(true)
+  departmentId      String
+  department        Department           @relation(fields: [departmentId], references: [id])
+  gramPanchayatId   String
+  gramPanchayat     GramPanchayat        @relation(fields: [gramPanchayatId], references: [id])
+  documents         ProjectDocument[]
+  estimates         ProjectEstimate[]
+  measurements      ProjectMeasurement[]
+  complaints        Complaint[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+model ProjectDocument {
+  id           String       @id @default(cuid())
+  projectId    String
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  docType      DocumentType
+  title        String
+  titleHi      String?
+  fileUrl      String
+  mimeType     String       @default("application/pdf")
+  extractedJson Json?
+  uploadedBy   String?
+  uploadedAt   DateTime     @default(now())
+}
+
+model ProjectEstimate {
+  id               String                  @id @default(cuid())
+  projectId        String
+  project          Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  itemName         String
+  itemNameHi       String?
+  unit             String
+  sanctionedQty    Float
+  sanctionedRate   Float
+  sanctionedAmount Float
+  measurements     ProjectMeasurement[]
+  fieldMeasurements InspectionMeasurement[]
+}
+
+model ProjectMeasurement {
+  id          String           @id @default(cuid())
+  projectId   String
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimateId  String?
+  estimate    ProjectEstimate? @relation(fields: [estimateId], references: [id])
+  itemName    String
+  unit        String
+  recordedQty Float
+  mbReference String
+  recordedBy  String
+  recordedAt  DateTime         @default(now())
+}
+
+model IssueCategoryConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  labelEn     String
+  labelHi     String
+  description String?
+  icon        String   @default("AlertTriangle")
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+}
+
+model RoutingRule {
+  id              String     @id @default(cuid())
+  name            String
+  categoryKey     String
+  blockId         String?
+  block           Block?     @relation(fields: [blockId], references: [id])
+  departmentId    String
+  department      Department @relation(fields: [departmentId], references: [id])
+  defaultPriority Priority   @default(MEDIUM)
+  slaDays         Int        @default(7)
+  active          Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+}
+
+model Complaint {
+  id                   String                  @id @default(cuid())
+  referenceNumber      String                  @unique
+  category             String
+  status               ComplaintStatus         @default(SUBMITTED)
+  priority             Priority                @default(MEDIUM)
+  description          String
+  descriptionEn        String?
+  language             String                  @default("hi")
+  lat                  Float
+  lng                  Float
+  locationDescription  String?
+  gramPanchayatId      String?
+  gramPanchayat        GramPanchayat?          @relation(fields: [gramPanchayatId], references: [id])
+  villageId            String?
+  village              Village?                @relation(fields: [villageId], references: [id])
+  citizenName          String
+  citizenPhone         String
+  citizenEmail         String?
+  isSimulated          Boolean                 @default(true)
+  inManualTriage       Boolean                 @default(false)
+  aiSummary            String?
+  aiExplanation        String?
+  aiConfidence         Float?
+  aiRawJson            Json?
+  linkedProjectId      String?
+  linkedProject        Project?                @relation(fields: [linkedProjectId], references: [id])
+  suggestedDeptId      String?
+  suggestedDept        Department?             @relation("SuggestedDepartment", fields: [suggestedDeptId], references: [id])
+  assignedDeptId       String?
+  assignedDept         Department?             @relation("AssignedDepartment", fields: [assignedDeptId], references: [id])
+  assignedOfficerId    String?
+  assignedOfficer      User?                   @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+  reviewingOfficerId   String?
+  reviewingOfficer     User?                   @relation("ReviewingOfficer", fields: [reviewingOfficerId], references: [id])
+  approvingOfficerId   String?
+  approvingOfficer     User?                   @relation("ApprovingOfficer", fields: [approvingOfficerId], references: [id])
+  attachments          ComplaintAttachment[]
+  deptAssignments      DepartmentAssignment[]
+  inspectionAssignments InspectionAssignment[]
+  inspectionReports    InspectionReport[]
+  decisions            Decision[]
+  resolution           ResolutionRecord?
+  auditEvents          AuditEvent[]
+  notifications        Notification[]
+  relatedFrom          ComplaintRelationship[] @relation("SourceComplaint")
+  relatedTo            ComplaintRelationship[] @relation("TargetComplaint")
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([gramPanchayatId])
+  @@index([assignedDeptId])
+}
+
+model ComplaintAttachment {
+  id          String    @id @default(cuid())
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  fileType    String    // "PHOTO" | "VOICE_NOTE"
+  fileName    String
+  fileUrl     String
+  mimeType    String
+  caption     String?
+  createdAt   DateTime  @default(now())
+}
+
+model ComplaintRelationship {
+  id                String           @id @default(cuid())
+  sourceComplaintId String
+  sourceComplaint   Complaint        @relation("SourceComplaint", fields: [sourceComplaintId], references: [id], onDelete: Cascade)
+  targetComplaintId String
+  targetComplaint   Complaint        @relation("TargetComplaint", fields: [targetComplaintId], references: [id], onDelete: Cascade)
+  relationshipType  RelationshipType @default(RELATED_LOCATION)
+  similarityScore   Float?
+  linkedBy          String?
+  notes             String?
+  createdAt         DateTime         @default(now())
+
+  @@unique([sourceComplaintId, targetComplaintId])
+}
+
+model DepartmentAssignment {
+  id           String     @id @default(cuid())
+  complaintId  String
+  complaint    Complaint  @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  assignedById String?
+  assignedBy   User?      @relation(fields: [assignedById], references: [id])
+  reason       String?
+  isAiSuggested Boolean   @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+model InspectionAssignment {
+  id             String             @id @default(cuid())
+  complaintId    String
+  complaint      Complaint          @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  fieldOfficerId String
+  fieldOfficer   User               @relation("InspectionAssignee", fields: [fieldOfficerId], references: [id])
+  assignedById   String
+  assignedBy     User               @relation("InspectionAssigner", fields: [assignedById], references: [id])
+  scheduledDate  DateTime
+  instructions   String?
+  status         String             @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED
+  reports        InspectionReport[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model InspectionReport {
+  id                 String                  @id @default(cuid())
+  complaintId        String
+  complaint          Complaint               @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  assignmentId       String?
+  assignment         InspectionAssignment?   @relation(fields: [assignmentId], references: [id])
+  fieldOfficerId     String
+  fieldOfficer       User                    @relation(fields: [fieldOfficerId], references: [id])
+  gpsLat             Float?
+  gpsLng             Float?
+  gpsAccuracy        Float?
+  capturedAt         DateTime?
+  observations       String
+  observationsEn     String?
+  voiceNoteUrl       String?
+  voiceTranscript    String?
+  checklistJson      Json?
+  aiSummary          String?
+  aiInconsistencies  String?
+  isDraft            Boolean                 @default(false)
+  submittedAt        DateTime?
+  measurements       InspectionMeasurement[]
+  evidenceFiles      EvidenceFile[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+}
+
+model InspectionMeasurement {
+  id                 String           @id @default(cuid())
+  inspectionReportId String
+  inspectionReport   InspectionReport @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
+  estimateItemId     String?
+  estimateItem       ProjectEstimate? @relation(fields: [estimateItemId], references: [id])
+  itemName           String
+  unit               String
+  measuredQty        Float
+  notes              String?
+  createdAt          DateTime         @default(now())
+}
+
+model EvidenceFile {
+  id                 String            @id @default(cuid())
+  inspectionReportId String?
+  inspectionReport   InspectionReport? @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
+  fileName           String
+  fileUrl            String
+  mimeType           String
+  caption            String?
+  gpsLat             Float?
+  gpsLng             Float?
+  capturedAt         DateTime          @default(now())
+  imageAnalysisJson  Json?
+}
+
+model Decision {
+  id           String       @id @default(cuid())
+  complaintId  String
+  complaint    Complaint    @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  decidedById  String
+  decidedBy    User         @relation(fields: [decidedById], references: [id])
+  decisionType DecisionType
+  reason       String
+  aiDraftUsed  Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+}
+
+model ResolutionRecord {
+  id                String    @id @default(cuid())
+  complaintId       String    @unique
+  complaint         Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  resolvedById      String
+  resolvedBy        User      @relation(fields: [resolvedById], references: [id])
+  actionTaken       String
+  publicSafeSummary String
+  publicSafeSummaryHi String?
+  resolvedAt        DateTime  @default(now())
+}
+
+model Notification {
+  id          String     @id @default(cuid())
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id])
+  complaintId String?
+  complaint   Complaint? @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  title       String
+  titleHi     String?
+  message     String
+  messageHi   String?
+  channel     String     @default("IN_APP") // IN_APP | DEMO_SMS
+  isPublic    Boolean    @default(false)
+  read        Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+}
+
+model AuditEvent {
+  id             String           @id @default(cuid())
+  complaintId    String
+  complaint      Complaint        @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?            @relation(fields: [userId], references: [id])
+  actorName      String
+  action         String
+  previousStatus ComplaintStatus?
+  newStatus      ComplaintStatus?
+  reason         String?
+  metadataJson   Json?
+  createdAt      DateTime         @default(now())
+
+  @@index([complaintId, createdAt])
+}
+
