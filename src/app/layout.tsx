@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   description:
     'Citizen Reporting, Ground-Level Verification and Evidence-Based Government Action Platform (Simulated Demo)',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/logo.svg',
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({

@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  ShieldCheck,
   MapPin,
   Search,
   LayoutDashboard,
@@ -48,9 +47,11 @@ export function TopNav() {
       </div>
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0F2942] text-white">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
+          <img
+            src="/logo.svg"
+            alt="JanSeva Logo"
+            className="h-9 w-9 rounded-lg shadow-sm"
+          />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold tracking-tight text-[#0F2942]">
